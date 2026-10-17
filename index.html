@@ -1,0 +1,866 @@
+
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ระบบจำแนกลายผ้าไทย</title>
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com">
+  <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+  <style>
+    body {
+      font-family: 'Prompt', sans-serif;
+    }
+
+    .pattern-bg {
+      background-color: #fcfbf9;
+      background-image:
+        radial-gradient(#873d32 0.55px, transparent 0.55px),
+        radial-gradient(#1e3a8a 0.55px, #fcfbf9 0.55px);
+      background-size: 20px 20px;
+      background-position: 0 0, 10px 10px;
+    }
+
+    .probability-bar {
+      transition: width .35s ease;
+    }
+
+    button:disabled {
+      opacity: .45;
+      cursor: not-allowed;
+    }
+  </style>
+</head>
+
+<body class="pattern-bg min-h-screen text-stone-800 p-4 sm:p-6">
+
+<main class="max-w-4xl mx-auto">
+
+  <!-- ส่วนหัว -->
+  <header class="bg-white rounded-3xl p-6 sm:p-8 shadow-sm border border-stone-200 mb-6 text-center">
+    <div class="inline-block px-3 py-1 bg-amber-50 border border-amber-200 text-amber-900 rounded-full text-xs mb-3">
+      ระบบปัญญาประดิษฐ์จำแนกลวดลายผ้าไทย
+    </div>
+
+    <h1 class="text-2xl sm:text-3xl font-bold text-[#873d32]">
+      ระบบจำแนกลายผ้าไทย
+    </h1>
+
+    <p class="text-stone-600 text-sm mt-2">
+      อัปโหลดหรือถ่ายภาพผ้าไทย เพื่อจำแนกลายผ้าด้วย AI
+    </p>
+
+    <div class="flex flex-wrap justify-center gap-2 mt-4 text-xs">
+      <span class="px-3 py-1 rounded-full bg-red-50 text-[#873d32] border border-red-200">ลายต้นสน</span>
+      <span class="px-3 py-1 rounded-full bg-stone-50 border border-stone-200">ลายหมี่คั่น</span>
+      <span class="px-3 py-1 rounded-full bg-stone-50 border border-stone-200">ลายหมี่ขอ</span>
+      <span class="px-3 py-1 rounded-full bg-stone-50 border border-stone-200">ลายราชวัตรโคม</span>
+      <span class="px-3 py-1 rounded-full bg-stone-50 border border-stone-200">ลายนาค</span>
+    </div>
+  </header>
+
+  <!-- ส่วนกล้องและอัปโหลดภาพ -->
+  <section class="bg-white rounded-3xl p-5 sm:p-6 shadow-sm border border-stone-200 mb-6">
+
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+
+      <!-- กล้องสด -->
+      <div class="border-2 border-dashed border-stone-300 rounded-2xl p-5 text-center bg-stone-50">
+
+        <div id="cameraPlaceholder">
+          <div class="text-4xl mb-3">📷</div>
+          <h2 class="font-semibold">ถ่ายภาพด้วยกล้อง</h2>
+
+          <p class="text-xs text-stone-500 mt-1 mb-4">
+            เปิดกล้องเพื่อถ่ายภาพผ้าไทย
+          </p>
+
+          <button type="button" onclick="startCamera()"
+            class="px-4 py-2 bg-[#873d32] text-white rounded-xl text-sm">
+            ถ่ายภาพ
+          </button>
+
+          <input id="cameraFileInput"
+            type="file"
+            accept="image/*"
+            capture="environment"
+            class="hidden"
+            onchange="handleCameraFile(this)">
+        </div>
+
+        <div id="cameraActiveView" class="hidden">
+
+          <video id="cameraVideo"
+            autoplay
+            playsinline
+            class="w-full rounded-xl bg-black max-h-64 object-contain">
+          </video>
+
+          <div class="flex justify-center gap-2 mt-3">
+
+            <button type="button" onclick="capturePhoto()"
+              class="px-4 py-2 bg-[#873d32] text-white rounded-xl text-sm">
+              📸 ถ่ายภาพ
+            </button>
+
+            <button type="button" onclick="stopCamera()"
+              class="px-4 py-2 bg-stone-200 rounded-xl text-sm">
+              ปิดกล้อง
+            </button>
+
+          </div>
+        </div>
+
+        <canvas id="cameraCanvas" class="hidden"></canvas>
+
+      </div>
+
+      <!-- อัปโหลดภาพ -->
+      <label class="border-2 border-dashed border-stone-300 rounded-2xl p-5 text-center bg-stone-50 cursor-pointer flex flex-col items-center justify-center min-h-48">
+
+        <div class="text-4xl mb-3">🖼️</div>
+
+        <h2 class="font-semibold">เลือกภาพลายผ้า</h2>
+
+        <p class="text-xs text-stone-500 mt-1">
+          รองรับ JPG, PNG และเลือกหลายภาพได้
+        </p>
+
+        <span class="mt-4 px-4 py-2 bg-stone-200 rounded-xl text-sm">
+          เลือกไฟล์ภาพ
+        </span>
+
+        <input id="imageInput"
+          type="file"
+          accept="image/*"
+          multiple
+          class="hidden"
+          onchange="handleFiles(this)">
+
+      </label>
+
+    </div>
+
+    <!-- ปุ่มควบคุม -->
+    <div class="flex flex-col sm:flex-row justify-between items-center gap-3 mt-5 pt-4 border-t border-stone-100">
+
+      <span id="queueSummary" class="text-sm text-stone-500">
+        ยังไม่ได้เลือกรูปภาพ
+      </span>
+
+      <div class="flex gap-2">
+
+        <button type="button"
+          id="clearBtn"
+          onclick="clearImages()"
+          class="hidden px-4 py-2 text-sm text-stone-500">
+          ล้างทั้งหมด
+        </button>
+
+        <button type="button"
+          id="predictBtn"
+          onclick="predictAll()"
+          disabled
+          class="px-5 py-2.5 bg-[#873d32] text-white rounded-xl text-sm">
+          🔍 เริ่มทำนายภาพ
+        </button>
+
+      </div>
+    </div>
+
+  </section>
+
+  <!-- ผลการทำนาย -->
+  <section id="results"
+    class="grid grid-cols-1 md:grid-cols-2 gap-4">
+  </section>
+
+</main>
+
+<footer class="text-center text-xs text-stone-400 py-6">
+  ระบบจำแนกลายผ้าไทยด้วย Convolutional Neural Network
+  <br>
+  Thai Fabric Pattern Classification
+</footer>
+
+<script>
+  let imageList = [];
+  let cameraStream = null;
+  let busy = false;
+
+  const $ = id => document.getElementById(id);
+
+  // ใส่ URL Cloudflare Tunnel ปัจจุบันของ Flask API จาก Google Colab
+  // ตัวอย่าง: https://xxxx.trycloudflare.com (ห้ามใส่ /predict ต่อท้าย)
+  const FLASK_API_URL = 'https://ใส่-URL-Cloudflare-Tunnel-ปัจจุบัน-ตรงนี้.trycloudflare.com';
+
+  // ======================================
+  // 1. เปิดกล้องสด
+  // ======================================
+
+  async function startCamera() {
+    const video = $('cameraVideo');
+
+    if (
+      !window.isSecureContext ||
+      !navigator.mediaDevices ||
+      typeof navigator.mediaDevices.getUserMedia !== 'function'
+    ) {
+      showCameraMessage(
+        'เบราว์เซอร์ไม่รองรับกล้องสด กรุณาใช้ Chrome/Edge ผ่าน HTTPS และอนุญาตสิทธิ์กล้อง'
+      );
+      return;
+    }
+
+    try {
+      stopCamera();
+
+      cameraStream = await navigator.mediaDevices.getUserMedia({
+        video: {
+          facingMode: { ideal: 'environment' },
+          width: { ideal: 1280 },
+          height: { ideal: 720 }
+        },
+        audio: false
+      });
+
+      video.srcObject = cameraStream;
+
+      $('cameraPlaceholder').classList.add('hidden');
+      $('cameraActiveView').classList.remove('hidden');
+
+      try {
+        await video.play();
+      } catch (playError) {
+        console.warn('Video playback error:', playError);
+      }
+
+    } catch (error) {
+      console.error('Camera error:', error);
+
+      let message = 'เปิดกล้องสดไม่ได้';
+
+      if (
+        error.name === 'NotAllowedError' ||
+        error.name === 'PermissionDeniedError'
+      ) {
+        message =
+          'เบราว์เซอร์ไม่อนุญาตให้ใช้กล้อง กรุณาอนุญาต Camera สำหรับเว็บไซต์นี้';
+      } else if (
+        error.name === 'NotFoundError' ||
+        error.name === 'DevicesNotFoundError'
+      ) {
+        message = 'ไม่พบกล้องในอุปกรณ์';
+      } else if (
+        error.name === 'NotReadableError' ||
+        error.name === 'TrackStartError'
+      ) {
+        message =
+          'กล้องอาจกำลังถูกใช้งานโดยแอปอื่น กรุณาปิดแอปนั้นก่อน';
+      }
+
+      showCameraMessage(
+        message + ' กรุณาอนุญาตสิทธิ์กล้องให้เว็บไซต์ GitHub Pages แล้วลองอีกครั้ง'
+      );
+    }
+  }
+
+  // ======================================
+  // 2. แสดงข้อความแจ้งเตือนกล้อง
+  // ======================================
+
+  function showCameraMessage(message) {
+    let notice = $('cameraNotice');
+
+    if (!notice) {
+      notice = document.createElement('p');
+      notice.id = 'cameraNotice';
+
+      notice.className =
+        'text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-lg p-3 mt-3';
+
+      $('cameraPlaceholder').appendChild(notice);
+    }
+
+    notice.textContent = message;
+  }
+
+  // เปิดตัวเลือกกล้องหรือไฟล์ภาพของอุปกรณ์
+  function openCameraFallback() {
+    $('cameraFileInput').click();
+  }
+
+  // ======================================
+  // 3. ปิดกล้อง
+  // ======================================
+
+  function stopCamera() {
+    if (cameraStream) {
+      cameraStream.getTracks().forEach(track => track.stop());
+      cameraStream = null;
+    }
+
+    const video = $('cameraVideo');
+
+    if (video) {
+      video.srcObject = null;
+    }
+
+    $('cameraPlaceholder').classList.remove('hidden');
+    $('cameraActiveView').classList.add('hidden');
+  }
+
+  // ======================================
+  // 4. ถ่ายภาพจากกล้องสด
+  // ======================================
+
+  function capturePhoto() {
+    const video = $('cameraVideo');
+    const canvas = $('cameraCanvas');
+
+    if (!video.videoWidth || !video.videoHeight) {
+      alert('กรุณารอให้กล้องแสดงภาพก่อน');
+      return;
+    }
+
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+
+    const context = canvas.getContext('2d');
+
+    context.drawImage(
+      video,
+      0,
+      0,
+      canvas.width,
+      canvas.height
+    );
+
+    canvas.toBlob(blob => {
+      if (!blob) {
+        alert('ถ่ายภาพไม่สำเร็จ');
+        return;
+      }
+
+      const reader = new FileReader();
+
+      reader.onload = event => {
+        addImage(
+          event.target.result,
+          'camera_' + (imageList.length + 1)
+        );
+      };
+
+      reader.onerror = () => {
+        alert('อ่านภาพจากกล้องไม่สำเร็จ');
+      };
+
+      reader.readAsDataURL(blob);
+
+    }, 'image/jpeg', 0.85);
+
+    stopCamera();
+  }
+
+  // ======================================
+  // 5. รับภาพจากกล้องหรือถ่ายด่วน
+  // ======================================
+
+  function handleCameraFile(input) {
+    if (input.files && input.files[0]) {
+      readImage(input.files[0]);
+    }
+
+    input.value = '';
+  }
+
+  // ======================================
+  // 6. อัปโหลดภาพจากไฟล์
+  // ======================================
+
+  function handleFiles(input) {
+    Array.from(input.files || []).forEach(file => {
+      readImage(file);
+    });
+
+    input.value = '';
+  }
+
+  function readImage(file) {
+    if (!file.type || !file.type.startsWith('image/')) {
+      alert('กรุณาเลือกไฟล์รูปภาพ');
+      return;
+    }
+
+    const reader = new FileReader();
+
+    reader.onload = event => {
+      addImage(
+        event.target.result,
+        file.name.replace(/\.[^/.]+$/, '')
+      );
+    };
+
+    reader.onerror = () => {
+      alert('อ่านไฟล์ภาพไม่สำเร็จ');
+    };
+
+    reader.readAsDataURL(file);
+  }
+
+  // ======================================
+  // 7. เพิ่มภาพในรายการ
+  // ======================================
+
+  function addImage(src, name) {
+    imageList.push({
+      id: Date.now() + '_' +
+        Math.random().toString(36).slice(2, 7),
+      src: src,
+      name: name,
+      status: 'ready',
+      result: null,
+      error: ''
+    });
+
+    render();
+  }
+
+  function clearImages() {
+    if (busy) return;
+
+    imageList = [];
+    render();
+  }
+
+  function removeImage(id) {
+    if (busy) return;
+
+    imageList = imageList.filter(item => item.id !== id);
+    render();
+  }
+
+  function renameImage(id, value) {
+    const item = imageList.find(x => x.id === id);
+
+    if (item) {
+      item.name = value;
+    }
+  }
+
+  // ======================================
+  // 8. แปลงผลลัพธ์จาก API
+  // ======================================
+
+  function normalizeResult(res) {
+    if (!res || typeof res !== 'object') {
+      throw new Error('ไม่ได้รับผลทำนายจาก API');
+    }
+
+    if (res.error) {
+      throw new Error(
+        typeof res.error === 'string'
+          ? res.error
+          : JSON.stringify(res.error)
+      );
+    }
+
+    // รูปแบบ Flask:
+    // { predicted_class, confidence, classes, probs }
+
+    if (
+      Array.isArray(res.classes) &&
+      Array.isArray(res.probs)
+    ) {
+      if (
+        res.classes.length !== res.probs.length ||
+        res.classes.length === 0
+      ) {
+        throw new Error(
+          'ชื่อคลาสกับคะแนนมีจำนวนไม่ตรงกัน'
+        );
+      }
+
+      const scores = res.classes.map((name, i) => ({
+        name: String(name),
+        score: Number(res.probs[i])
+      }));
+
+      if (
+        scores.some(x => !Number.isFinite(x.score))
+      ) {
+        throw new Error('คะแนนจากโมเดลไม่ใช่ตัวเลข');
+      }
+
+      scores.sort((a, b) => b.score - a.score);
+
+      const top = scores[0];
+
+      const predicted =
+        res.predicted_class || top.name;
+
+      return {
+        class_name: predicted,
+        confidence: Number.isFinite(Number(res.confidence))
+          ? Number(res.confidence)
+          : top.score,
+        all_scores: scores
+      };
+    }
+
+    // รองรับรูปแบบผลลัพธ์เดิม
+    if (Array.isArray(res.all_scores)) {
+      const scores = res.all_scores.map(s => ({
+        name: String(s.name),
+        score: Number(s.score)
+      }));
+
+      if (
+        scores.some(x => !Number.isFinite(x.score))
+      ) {
+        throw new Error('คะแนนจากโมเดลไม่ใช่ตัวเลข');
+      }
+
+      scores.sort((a, b) => b.score - a.score);
+
+      const top = scores[0];
+
+      return {
+        ...res,
+        class_name:
+          res.class_name ||
+          res.predicted_class ||
+          (top && top.name),
+        confidence: Number(
+          res.confidence ?? (top ? top.score : 0)
+        ),
+        all_scores: scores
+      };
+    }
+
+    throw new Error(
+      'รูปแบบข้อมูลจาก Flask API ไม่ถูกต้อง กรุณาตรวจ endpoint /predict'
+    );
+  }
+
+  // ======================================
+  // 9. แสดงความน่าจะเป็นครบทุกคลาส
+  // ======================================
+
+  function renderScores(result) {
+    if (
+      !result.all_scores ||
+      !result.all_scores.length
+    ) {
+      return '<p class="text-red-600">ไม่มีคะแนนของแต่ละคลาส</p>';
+    }
+
+    return result.all_scores.map((item, index) => {
+      const raw = Number(item.score);
+
+      const pct = Math.max(
+        0,
+        Math.min(100, raw <= 1 ? raw * 100 : raw)
+      );
+
+      const isTop = index === 0;
+
+      return `
+        <div class="mt-3">
+
+          <div class="flex justify-between items-center gap-3 text-xs mb-1">
+
+            <span class="${
+              isTop
+                ? 'font-semibold text-[#873d32]'
+                : 'text-stone-600'
+            }">
+              ${escapeHtml(item.name)}
+              ${isTop ? ' ★' : ''}
+            </span>
+
+            <span class="${
+              isTop
+                ? 'font-bold text-[#873d32]'
+                : 'text-stone-600'
+            }">
+              ${pct.toFixed(2)}%
+            </span>
+
+          </div>
+
+          <div class="w-full h-2 rounded-full bg-stone-200 overflow-hidden">
+
+            <div
+              class="probability-bar h-full rounded-full ${
+                isTop ? 'bg-[#873d32]' : 'bg-stone-400'
+              }"
+              style="width:${pct}%">
+            </div>
+
+          </div>
+
+        </div>
+      `;
+    }).join('');
+  }
+
+  function escapeHtml(value) {
+    return String(value).replace(/[&<>"']/g, ch => ({
+      '&': '&amp;',
+      '<': '&lt;',
+      '>': '&gt;',
+      '"': '&quot;',
+      "'": '&#39;'
+    })[ch]);
+  }
+
+  // ======================================
+  // 10. แสดงการ์ดผลลัพธ์
+  // ======================================
+
+  function render() {
+    $('queueSummary').textContent =
+      imageList.length
+        ? 'เลือกไว้ทั้งหมด ' + imageList.length + ' ภาพ'
+        : 'ยังไม่ได้เลือกรูปภาพ';
+
+    $('predictBtn').disabled =
+      busy || imageList.length === 0;
+
+    $('clearBtn').classList.toggle(
+      'hidden',
+      imageList.length === 0
+    );
+
+    $('results').innerHTML = imageList.map(item => {
+      let resultHtml = '';
+
+      if (item.status === 'ready') {
+        resultHtml =
+          '<p class="text-stone-400">พร้อมเริ่มทำนาย</p>';
+
+      } else if (item.status === 'processing') {
+        resultHtml = `
+          <div class="flex items-center gap-2 text-stone-600">
+            <div class="w-4 h-4 border-2 border-[#873d32] border-t-transparent rounded-full animate-spin"></div>
+            กำลังวิเคราะห์ภาพ...
+          </div>
+        `;
+
+      } else if (item.status === 'error') {
+        resultHtml = `
+          <p class="text-red-600 font-medium">
+            ผิดพลาด: ${escapeHtml(item.error)}
+          </p>
+        `;
+
+      } else if (
+        item.status === 'done' &&
+        item.result
+      ) {
+        const r = item.result;
+
+        const topScore = r.confidence <= 1
+          ? r.confidence * 100
+          : r.confidence;
+
+        resultHtml = `
+          <div class="p-3 rounded-xl bg-stone-100 border border-stone-200">
+
+            <div class="flex flex-wrap justify-between gap-2">
+
+              <span class="font-semibold text-stone-700">
+                ผลทำนาย: ${escapeHtml(r.class_name)}
+              </span>
+
+              <span class="font-bold text-[#873d32]">
+                ${topScore.toFixed(2)}%
+              </span>
+
+            </div>
+
+          </div>
+
+          <div class="mt-4 pt-3 border-t border-stone-200">
+
+            <h3 class="font-semibold text-stone-600 mb-2">
+              ความน่าจะเป็นครบทุกคลาส (${r.all_scores.length} คลาส)
+            </h3>
+
+            ${renderScores(r)}
+
+          </div>
+        `;
+      }
+
+      return `
+        <article class="bg-white rounded-2xl p-4 shadow-sm border border-stone-200">
+
+          <img
+            src="${item.src}"
+            alt="ภาพผ้าไทย"
+            class="w-full h-48 object-contain bg-stone-100 rounded-xl mb-3">
+
+          <label class="block text-xs text-stone-500 mb-1">
+            ชื่อตัวอย่างภาพ
+          </label>
+
+          <input
+            type="text"
+            value="${escapeHtml(item.name)}"
+            onchange="renameImage('${item.id}', this.value)"
+            class="w-full px-3 py-2 text-sm bg-stone-50 border border-stone-200 rounded-lg mb-3">
+
+          <div class="bg-stone-50 rounded-xl border border-stone-100 p-3">
+            ${resultHtml}
+          </div>
+
+          <div class="flex justify-end mt-3">
+
+            <button
+              type="button"
+              onclick="removeImage('${item.id}')"
+              ${busy ? 'disabled' : ''}
+              class="text-xs text-stone-400 hover:text-red-600">
+              ✕ นำออก
+            </button>
+
+          </div>
+
+        </article>
+      `;
+    }).join('');
+  }
+
+  // ======================================
+  // 11. ส่งภาพไปทำนายผ่าน Flask API
+  // ======================================
+
+  async function predictAll() {
+    if (busy || imageList.length === 0) return;
+
+    busy = true;
+    render();
+
+    try {
+      for (const item of imageList) {
+        item.status = 'processing';
+        item.result = null;
+        item.error = '';
+
+        render();
+
+        try {
+          const base64Data = await compressImage(item.src);
+
+          if (
+            !FLASK_API_URL ||
+            FLASK_API_URL.includes('ใส่-URL-Cloudflare-Tunnel-ปัจจุบัน')
+          ) {
+            throw new Error('กรุณาใส่ URL Cloudflare Tunnel ปัจจุบันในตัวแปร FLASK_API_URL ก่อน');
+          }
+
+          const response = await fetch(FLASK_API_URL.replace(/\/$/, '') + '/predict', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              image: base64Data
+            })
+          });
+
+          let res;
+          try {
+            res = await response.json();
+          } catch (_) {
+            throw new Error('API ไม่ได้ส่ง JSON กลับมา กรุณาตรวจว่า Flask API ยังทำงานอยู่');
+          }
+
+          if (!response.ok) {
+            throw new Error(res.error || res.message || ('Flask API ตอบกลับ HTTP ' + response.status));
+          }
+
+          item.result = normalizeResult(res);
+          item.status = 'done';
+
+        } catch (error) {
+          item.status = 'error';
+
+          item.error = error && error.message
+            ? error.message
+            : String(error);
+        }
+
+        render();
+      }
+
+    } finally {
+      busy = false;
+      render();
+    }
+  }
+
+  // ======================================
+  // 12. ปรับภาพเป็น 320x320 ก่อนส่ง API
+  // ======================================
+
+  function compressImage(dataUrl) {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+
+        canvas.width = 320;
+        canvas.height = 320;
+
+        const ctx = canvas.getContext('2d');
+
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, 320, 320);
+
+        // รักษาสัดส่วนภาพ
+        const scale = Math.min(
+          320 / img.width,
+          320 / img.height
+        );
+
+        const width = img.width * scale;
+        const height = img.height * scale;
+
+        const x = (320 - width) / 2;
+        const y = (320 - height) / 2;
+
+        ctx.drawImage(img, x, y, width, height);
+
+        const jpeg = canvas.toDataURL(
+          'image/jpeg',
+          0.85
+        );
+
+        // ส่งเฉพาะ Base64 ไปยัง Code.gs
+        resolve(jpeg.split(',')[1]);
+      };
+
+      img.onerror = () => {
+        reject(
+          new Error('อ่านภาพเพื่อเตรียมทำนายไม่ได้')
+        );
+      };
+
+      img.src = dataUrl;
+    });
+  }
+
+  // เริ่มแสดงหน้าเว็บ
+  render();
+</script>
+
+</body>
+</html>
